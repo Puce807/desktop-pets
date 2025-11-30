@@ -59,14 +59,13 @@ def load_animation(gif_path, animations_fps, direction, scale=3, fps=None):
     return {"frames": frames, "fps": fps}
 
 def weighted_choice(actions):
-    r = random.random()
+    total = sum(actions.values())
+    r = random.random() * total
     cum = 0
-
     for action, weight in actions.items():
         cum += weight
         if r < cum:
             return action
-
     return "idle"
 
 class Pet(QLabel):
@@ -96,6 +95,7 @@ class Pet(QLabel):
         self.walking_duration = random.randint(5, 8)
         self.start = time.time()
         self.lick_animation = random.randint(0, 1)
+        self.next_action_decided = False
 
         self.scared_cooldown = 0
         self.scared_start = time.time()
@@ -128,7 +128,7 @@ class Pet(QLabel):
         if self.state == "sleep":
             animation = load_animation(f"{ANIMATION_PATH}/{self.name}/sleep0", self.pet_fps, self.direction, scale=self.scale)
         if self.state == "lick":
-            animation = load_animation(f"{ANIMATION_PATH}/{self.name}/sleep0", self.pet_fps, self.direction, scale=self.scale)
+            animation = load_animation(f"{ANIMATION_PATH}/{self.name}/lick0", self.pet_fps, self.direction, scale=self.scale)
         if not animation["frames"]:
             return
         self.current_animation = anim
@@ -188,8 +188,8 @@ class Pet(QLabel):
                 self.state = "walk"
             else:
                 mouse_x, mouse_y = pyautogui.position()
-                self.center_x = self.x + 90 # Extra numbers offset to center of cat
-                self.center_y = self.y + 110 # Extra numbers offset to center of cat
+                self.center_x = self.x + 90  # Extra numbers offset to center of cat
+                self.center_y = self.y + 110  # Extra numbers offset to center of cat
                 mouse_dist = math.hypot(self.center_x - mouse_x, self.center_y - mouse_y)
                 if time.time() - self.scared_start > self.scared_cooldown:
                     if mouse_x > self.center_x:
@@ -202,7 +202,7 @@ class Pet(QLabel):
                         self.scared_cooldown = 3
                         self.scared_start = time.time()
         elif self.state == "walk":
-            if elapsed > self.walking_duration: # End of walking
+            if elapsed > self.walking_duration:  # End of walking
                 self.idle_duration = random.randint(5, 30)
                 self.start = time.time()
                 if self.idle_duration >= 10:
