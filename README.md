@@ -21,3 +21,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Art Credit
+
+https://elthen.itch.io/2d-pixel-art-cat-sprites

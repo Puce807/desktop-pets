@@ -4,17 +4,20 @@ from PySide6.QtCore import Qt, QSize, QTimer, QElapsedTimer
 from config import *
 import random, time
 
-def load_animation(gif_path, animations_fps, scale=3, fps=None):
+def load_animation(gif_path, animations_fps, direction, scale=3, fps=None):
     """
     Load a GIF and return scaled frames as QPixmaps along with fps.
-
+    :param direction: direction of gif. 1 or -1
     :param animations_fps: dictionary of animation gifs to their fps
     :param gif_path: Path to GIF
     :param scale: Integer scale factor
     :param fps: Optional custom FPS (overrides GIF frame delay)
     :return: {"frames": [...QPixmap...], "fps": int}
     """
-    movie = QMovie(gif_path)
+    if direction == 1:
+        movie = QMovie(f"{gif_path}.gif")
+    else:
+        movie = QMovie(f"{gif_path}_FLIPPED.gif")
 
     max_w, max_h = 0, 0
     for i in range(movie.frameCount()):
@@ -101,7 +104,7 @@ class Pet(QLabel):
         self.drag_offset = None
 
     def change_animation(self, anim, repeat=1, next_a=DEFAULT_ANIMATION):
-        animation = load_animation(f"{ANIMATION_PATH}/{self.name}/{anim}.gif", self.pet_fps, scale=self.scale)
+        animation = load_animation(f"{ANIMATION_PATH}/{self.name}/{anim}", self.pet_fps, self.direction, scale=self.scale)
         if not animation["frames"]:
             return
         self.current_animation = anim
@@ -129,9 +132,6 @@ class Pet(QLabel):
                     self.change_animation(self.next_animation)
                     return
             frame = self.frames[self.frame_index]
-            if self.direction == -1:
-                frame = QPixmap.fromImage(frame.toImage().mirrored(1, 0))
-                print("flipped")
             self.setPixmap(frame)
 
         self.timer.timeout.connect(next_frame_repeat)
@@ -201,7 +201,6 @@ class Pet(QLabel):
 if __name__ == "__main__":
     app = QApplication([])
 
-    # Point to your GIF
     pet = Pet("cat")
 
     move_timer = QTimer()
