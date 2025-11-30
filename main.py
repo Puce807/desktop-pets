@@ -1,8 +1,10 @@
+import math
+
 from PySide6.QtWidgets import QLabel, QApplication
 from PySide6.QtGui import QMovie, QPainter, QPixmap
 from PySide6.QtCore import Qt, QSize, QTimer, QElapsedTimer
 from config import *
-import random, time
+import random, time, pyautogui
 
 def load_animation(gif_path, animations_fps, direction, scale=3, fps=None):
     """
@@ -56,6 +58,17 @@ def load_animation(gif_path, animations_fps, direction, scale=3, fps=None):
 
     return {"frames": frames, "fps": fps}
 
+def weighted_choice(actions):
+    r = random.random()
+    cum = 0
+
+    for action, weight in actions.items():
+        cum += weight
+        if r < cum:
+            return action
+
+    return "idle"
+
 class Pet(QLabel):
     def __init__(self, name, scale=5, fps=None):
         super().__init__()
@@ -77,11 +90,18 @@ class Pet(QLabel):
         self.vx = 0
         self.direction = 1
 
-        self.state = "rest"
+        self.state = "idle"
         self.speed = random.randint(1, 4)
-        self.rest_duration = random.randint(5, 30)
+        self.idle_duration = random.randint(5, 30)
         self.walking_duration = random.randint(5, 8)
         self.start = time.time()
+        self.lick_animation = random.randint(0, 1)
+
+        self.scared_cooldown = 0
+        self.scared_start = time.time()
+
+        self.center_x = self.x + self.width() // 2
+        self.center_y = self.y + self.height() // 2
 
         self.played_loops = 0
         self.repeat_count = 0
@@ -105,6 +125,10 @@ class Pet(QLabel):
 
     def change_animation(self, anim, repeat=1, next_a=DEFAULT_ANIMATION):
         animation = load_animation(f"{ANIMATION_PATH}/{self.name}/{anim}", self.pet_fps, self.direction, scale=self.scale)
+        if self.state == "sleep":
+            animation = load_animation(f"{ANIMATION_PATH}/{self.name}/sleep0", self.pet_fps, self.direction, scale=self.scale)
+        if self.state == "lick":
+            animation = load_animation(f"{ANIMATION_PATH}/{self.name}/sleep0", self.pet_fps, self.direction, scale=self.scale)
         if not animation["frames"]:
             return
         self.current_animation = anim
@@ -149,24 +173,46 @@ class Pet(QLabel):
     def update(self):
         self.update_positon()
 
-        if abs(self.vx) > 0.5:
-            if self.current_animation != "walk0":
+        if self.state == "walk":
+            if abs(self.vx) > 0.5 and self.current_animation != "walk0":
                 self.change_animation("walk0")
 
         elapsed = time.time() - self.start
-        if self.state == "rest":
-            if elapsed > self.rest_duration:
+        if self.state == "idle":
+            if elapsed > self.idle_duration:
                 self.walking_duration = random.randint(3, 7)
                 self.start = time.time()
                 self.speed = random.randint(1, 4)
-                #if random.random() < 0.01:
-                    #self.speed *= -1
+                if random.random() < TURN_CHANCE:
+                    self.direction *= -1
                 self.state = "walk"
+            else:
+                mouse_x, mouse_y = pyautogui.position()
+                self.center_x = self.x + 90 # Extra numbers offset to center of cat
+                self.center_y = self.y + 110 # Extra numbers offset to center of cat
+                mouse_dist = math.hypot(self.center_x - mouse_x, self.center_y - mouse_y)
+                if time.time() - self.scared_start > self.scared_cooldown:
+                    if mouse_x > self.center_x:
+                        self.direction = 1
+                    else:
+                        self.direction = -1
+                    if mouse_dist < MOUSE_ACTIVATION_DIST and self.current_animation != "scared0":
+                        self.idle_duration += 2
+                        self.change_animation("scared0")
+                        self.scared_cooldown = 3
+                        self.scared_start = time.time()
         elif self.state == "walk":
-            if elapsed > self.walking_duration:
-                self.rest_duration = random.randint(5, 30)
+            if elapsed > self.walking_duration: # End of walking
+                self.idle_duration = random.randint(5, 30)
                 self.start = time.time()
-                self.state = "rest"
+                if self.idle_duration >= 10:
+                    self.state = weighted_choice(behaviours)
+                    if self.state == "sleep":
+                        self.idle_duration += 60
+                    elif self.state == "paw":
+                        self.idle_duration = 7
+                    elif self.state == "lick":
+                        self.lick_animation = random.randint(0, 1)
             else:
                 self.vx = self.speed * self.direction
                 if self.x >= RIGHT_BOUND and self.vx > 0:
@@ -174,14 +220,26 @@ class Pet(QLabel):
                     self.x = RIGHT_BOUND
                 elif self.x <= LEFT_BOUND and self.vx < 0:
                     self.direction = 1
-                    self.speed *= -1
                     self.x = LEFT_BOUND
-        #print("Speed:")
-        #print(self.speed)
-        #print("vx:")
-        #print(self.vx)
-        #print("Direction:")
-        #print(self.direction)
+        elif self.state == "lick":
+            if elapsed > self.idle_duration - 4:
+                self.state = "idle"
+            else:
+                if self.current_animation != f"lick{self.lick_animation}":
+                    self.change_animation(f"lick{self.lick_animation}")
+        elif self.state == "sleep":
+            if elapsed > self.idle_duration - 4:
+                self.state = "idle"
+            else:
+                if self.current_animation != "sleep0":
+                    self.change_animation("sleep0")
+        elif self.state == "paw":
+            if elapsed > self.idle_duration - 4:
+                self.state = "idle"
+
+            if self.current_animation != "paw0":
+                self.change_animation("paw0")
+
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -208,4 +266,3 @@ if __name__ == "__main__":
     move_timer.start(1000 // 60)  # ~60 updates per second
 
     app.exec()
-

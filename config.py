@@ -22,3 +22,10 @@ DEFAULT_ANIMATION = "idle0"
 FRICTION = 0.95
 LEFT_BOUND = 50
 RIGHT_BOUND = 1750
+
+behaviours = { "sleep": 0.1,
+               "paw": 0.1,
+               "lick": 0.25 }
+TURN_CHANCE = 0.10
+
+MOUSE_ACTIVATION_DIST = 50
